@@ -6,8 +6,9 @@ GHCBUILDFLAGS = -isrc -odir $(BUILDDIR) -hidir $(BUILDDIR)
 SOURCE = $(shell find src/ -name "*.hs")
 
 EXECUTABLE = prec
-MAIN = Main.hs 
+MAIN = src/Main.hs 
 
+default: $(EXECUTABLE) 
 all: $(EXECUTABLE) doc 
 
 $(EXECUTABLE): $(SOURCE)

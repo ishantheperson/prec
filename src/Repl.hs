@@ -1,8 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
 module Repl where 
 
 import Parser
 import Eval
 
+import Data.Char (isSpace)
 import Data.List (genericLength)
 import Data.Maybe (fromMaybe, maybe)
 import Text.Read (readMaybe)
@@ -12,7 +14,10 @@ import System.Console.Haskeline
 prompt = "Prec> "
 
 repl :: IO () 
-repl = runInputT defaultSettings loop
+repl = runInputT settings loop
+  where settings = defaultSettings { 
+    historyFile = Just ".precHistory"
+  }
 
 loop :: InputT IO () 
 loop = do 
@@ -20,7 +25,8 @@ loop = do
   case minput of 
     Nothing -> return () 
     Just "quit" -> return () 
-    Just input -> processInput input 
+    Just input | isComment input -> loop 
+               | otherwise -> processInput input 
 
 processInput :: String -> InputT IO () 
 processInput input = do 
@@ -38,10 +44,17 @@ promptNumbers ast =
       minput <- getInputLine $ "Enter list of " ++ numText ++ " numbers: "
       case minput of 
         Nothing -> loop 
-        Just input -> do 
+        Just input | isComment input -> promptNumbers ast 
+                   | otherwise -> do 
           case (readMaybe input :: Maybe [Integer]) of 
             Just xs | genericLength xs == (fromMaybe (genericLength xs) numIn) -> 
               outputStrLn . show $ eval xs ast  
             _ -> promptNumbers ast 
 
           loop 
+
+isComment = \case 
+  [] -> True 
+  '#':_ -> True 
+  x:xs | isSpace x -> isComment xs 
+       | otherwise -> False 

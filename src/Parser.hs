@@ -7,7 +7,6 @@ import Data.Char (toLower)
 import Data.List (intercalate)
 
 import Text.ParserCombinators.Parsec 
-import Text.ParserCombinators.Parsec.Expr 
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Tok 
 
