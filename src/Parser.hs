@@ -1,46 +1,25 @@
-{-# LANGUAGE BlockArguments, LambdaCase #-}
+{-# LANGUAGE BlockArguments #-}
 module Parser where 
 
 import Prelude hiding (succ)
 
+import Programs 
+
 import Data.Char (toLower)
-import Data.List (intercalate)
 
 import Text.ParserCombinators.Parsec 
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Tok 
 
-data Program = 
-             -- | Represents hard natural number constants 
-               Nat Integer 
-             | Succ 
-             -- | Projection Index Arity
-             | Proj Integer Integer 
-             -- | Compose 
-             | Compose Program Program 
-             | Prec Program Program 
-             | Tuple [Program] 
-
-instance Show Program where 
-  show = \case 
-    Nat i -> show i 
-    Succ -> "S"
-    Proj index arity -> "Proj(" ++ show index ++ ", " ++ show arity ++ ")"
-    Compose f g -> "(" ++ show f ++ " o " ++ show g ++ ")"
-    Prec h g -> "Prec[" ++ show h ++ ", " ++ show g ++ "]"
-    Tuple xs -> "(" ++ intercalate ", " (map show xs) ++ ")"
-
-
 parseString = parse program "" . map toLower 
 
 program :: Parser Program 
-program = chainl1 term (whitespace >> (string "o " *> pure Compose))
+program = chainl1 term (try $ string " o " *> pure Compose)
     where term = prec <|> proj <|> natural <|> succ <|> tuple 
 
-
-natural = Nat <$> integer 
-succ = string "s" *> pure Succ
-prec = do 
+natural = Nat <$> integer  <?> "natural number"
+succ = string "s" *> pure Succ <?> "S (successor)"
+prec = (do 
   try $ string "prec"
 
   whitespace 
@@ -53,9 +32,9 @@ prec = do
     whitespace 
 
     g <- program 
-    return $ Prec h g 
+    return $ Prec h g) <?> "Prec"
 
-proj = do 
+proj = (do 
   try $ string "p"
 
   whitespace 
@@ -66,12 +45,12 @@ proj = do
 
   arity <- integer 
 
-  return $ Proj index arity 
+  return $ Proj index arity) <?> "P (proj)"
 
-tuple = Tuple <$> parens (sepBy1 program (string "," >> whitespace))
+tuple = Tuple <$> parens (sepBy1 program (string "," >> whitespace)) <?> "Tuple"
 
 lexer = Tok.makeTokenParser emptyDef 
-integer = Tok.integer lexer 
+integer = Tok.natural lexer 
 whitespace = Tok.whiteSpace lexer 
 brackets = Tok.brackets lexer 
 parens = Tok.parens lexer 

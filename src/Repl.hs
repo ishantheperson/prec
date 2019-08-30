@@ -1,8 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 module Repl where 
 
-import Parser
 import Eval
+import Parser
+import Programs 
 
 import Data.Char (isSpace)
 import Data.List (genericLength)
@@ -15,9 +16,7 @@ prompt = "Prec> "
 
 repl :: IO () 
 repl = runInputT settings loop
-  where settings = defaultSettings { 
-    historyFile = Just ".precHistory"
-  }
+  where settings = defaultSettings { historyFile = Just ".precHistory" }
 
 loop :: InputT IO () 
 loop = do 
@@ -32,7 +31,8 @@ processInput :: String -> InputT IO ()
 processInput input = do 
   let program = parseString input 
   case program of 
-    Left error -> outputStrLn $ show error 
+    Left error -> do outputStrLn $ show error 
+                     loop 
     Right ast -> promptNumbers ast 
 
 promptNumbers :: Program -> InputT IO () 
