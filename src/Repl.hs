@@ -40,8 +40,11 @@ promptNumbers ast =
   case findType ast of 
     Nothing -> outputStrLn "Type error detected"
 
-    Just (numIn, _) -> do 
+    Just (numIn, numOut) -> do 
       let numText = maybe "(any #)" show numIn
+      outputStrLn $ "f: N^" ++ numText ++ " -> N^" ++ show numOut 
+      outputStrLn $ "f = " ++ show ast 
+
       minput <- getInputLine $ "Enter list of " ++ numText ++ " numbers: "
       case minput of 
         Nothing -> loop 

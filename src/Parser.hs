@@ -1,5 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
-module Parser where 
+module Parser (parseString) where 
 
 import Prelude hiding (succ)
 
