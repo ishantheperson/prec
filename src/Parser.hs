@@ -11,46 +11,44 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Tok 
 
-parseString = parse program "" . map toLower 
+parseString = parse (whitespace >> program) "" . map toLower 
 
 program :: Parser Program 
-program = chainl1 term (try $ string " o " *> pure Compose)
+program = chainl1 term (try $ reserved "o" *> pure Compose)
     where term = prec <|> proj <|> natural <|> succ <|> tuple 
 
 natural = Nat <$> integer  <?> "natural number"
-succ = string "s" *> pure Succ <?> "S (successor)"
+succ = reserved "s" *> pure Succ <?> "S (successor)"
 prec = (do 
-  try $ string "prec"
-
-  whitespace 
+  try $ reserved "prec"
 
   brackets do 
     h <- program 
-
-    whitespace 
-    string ","
-    whitespace 
+ 
+    comma
 
     g <- program 
     return $ Prec h g) <?> "Prec"
 
 proj = (do 
-  try $ string "p"
-
-  whitespace 
+  try $ reserved "p"
 
   index <- integer 
-
-  whitespace 
 
   arity <- integer 
 
   return $ Proj index arity) <?> "P (proj)"
 
-tuple = Tuple <$> parens (sepBy1 program (string "," >> whitespace)) <?> "Tuple"
+tuple = Tuple <$> parens (commaSep1 program) <?> "Tuple"
 
-lexer = Tok.makeTokenParser emptyDef 
+lexer = Tok.makeTokenParser (emptyDef {
+  reservedNames = ["o", "p", "s", "prec"]
+})
+
 integer = Tok.natural lexer 
 whitespace = Tok.whiteSpace lexer 
 brackets = Tok.brackets lexer 
 parens = Tok.parens lexer 
+reserved = Tok.reserved lexer 
+comma = Tok.comma lexer 
+commaSep1 = Tok.commaSep1 lexer 

@@ -39,17 +39,23 @@ promptNumbers :: Program -> InputT IO ()
 promptNumbers ast = 
   case findType ast of 
     Nothing -> outputStrLn "Type error detected"
+
     Just (numIn, _) -> do 
       let numText = maybe "(any #)" show numIn
       minput <- getInputLine $ "Enter list of " ++ numText ++ " numbers: "
       case minput of 
         Nothing -> loop 
+
         Just input | isComment input -> promptNumbers ast 
                    | otherwise -> do 
           case (readMaybe input :: Maybe [Integer]) of 
             Just xs | genericLength xs == (fromMaybe (genericLength xs) numIn) -> 
               outputStrLn . show $ eval xs ast  
-            _ -> promptNumbers ast 
+                    | otherwise -> do outputStrLn "Wrong number of args"
+                                      promptNumbers ast 
+            _ -> do outputStrLn "Numbers should be in Haskell list format"
+                    outputStrLn $ "e.g. " ++ show [1..fromMaybe 3 numIn]
+                    promptNumbers ast 
 
           loop 
 
