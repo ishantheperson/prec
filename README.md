@@ -32,6 +32,24 @@ Enter list of 2 numbers: [4, 5]
 [625]
 ```
 
+Listing available definitions:
+```
+Prec> :ls
+add
+N^2 -> N^1
+Prec[(S o Proj(2, 3)), Proj(1, 1)]
+
+invsign
+N^(any #) -> N^1
+(sub o (1, Proj(1, 1)))
+
+mult
+N^2 -> N^1
+Prec[(add o (Proj(2, 3), Proj(3, 3))), 0]
+
+(elided)
+```
+
 Running from a file:
 
 ```

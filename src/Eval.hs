@@ -21,16 +21,12 @@ eval context =
         Tuple fs -> concatMap (go input) fs 
         Prec h g -> case input of 
                       0:xs -> go xs g 
-                      (x+1):xs -> go (x:(go (x:xs) (Prec h g)) ++ xs) h 
+                      ~((x+1):xs) -> go (x:(go (x:xs) (Prec h g)) ++ xs) h 
+                      -- Empty list is not possible since 
+                      -- Prec[h, g] has type N^n -> N for n >= 1
   in go 
 
-
 type EvalT = StateT EvalState
-
-{-
-runEvalT :: Monad m => EvalT m a -> m (a, EvalState)
-runEvalT = flip runStateT Map.empty
--}
 
 evalEvalT :: Monad m => EvalT m a -> m a 
 evalEvalT = flip evalStateT Map.empty 

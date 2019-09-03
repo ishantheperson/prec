@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, BlockArguments #-}
+{-# LANGUAGE LambdaCase, BlockArguments, ScopedTypeVariables #-}
 module Repl where 
 
 import Eval
@@ -7,7 +7,9 @@ import Programs
 
 import Data.Char (isSpace)
 import Data.List (genericLength)
-import Data.Maybe (fromMaybe, maybe)
+import Data.Maybe (fromMaybe, maybe, fromJust)
+import qualified Data.Map as Map
+
 import Text.Read (readMaybe)
 
 import Control.Monad.State
@@ -16,8 +18,16 @@ import System.Console.Haskeline
 
 prompt = "Prec> "
 
-repl :: IO () 
-repl = runInputT settings (evalEvalT loop)
+repl :: [String] -> IO () 
+repl input = runInputT settings $ evalEvalT do 
+               forM_ input \line -> 
+                 when (not $ isComment line) 
+                  case parseString line of 
+                    Left err -> lift $ outputStrLn $ show err 
+                    Right (Just name, p) -> addProgram name p 
+                    Right _ -> return () 
+
+               loop
   where settings = defaultSettings { historyFile = Just ".precHistory" }
 
 loop :: EvalT (InputT IO) ()
@@ -26,6 +36,17 @@ loop = do
   case minput of 
     Nothing -> return () 
     Just "quit" -> return () 
+    Just ":ls" -> do 
+      context <- get 
+      forM_ (Map.toList context) \(name, p) -> do 
+        let t = fromJust $ findType context p 
+        lift $ outputStrLn name
+        printFunction t p 
+
+        lift $ outputStrLn ""
+
+      loop 
+
     Just input | isComment input -> loop 
                | otherwise -> processInput input 
 
@@ -40,6 +61,7 @@ processInput input = do
       case findType context program of 
         Nothing -> do lift $ outputStrLn "Type error detected, or unknown function name"
                       loop 
+
         Just t -> do printFunction t program 
                      addProgram name program 
                      loop 
@@ -52,7 +74,7 @@ promptNumbers ast = do
   case findType context ast of 
     Nothing -> lift $ outputStrLn "Type error detected, or unknown function name"
 
-    Just t@(numIn, numOut) -> do 
+    Just t@(numIn, _) -> do 
       printFunction t ast 
 
       minput <- lift $ getInputLine $ "Enter list of " ++ maybe "(any #)" show numIn ++ " numbers: "
@@ -60,25 +82,24 @@ promptNumbers ast = do
         Nothing -> loop 
 
         Just input | isComment input -> promptNumbers ast 
-
                    | otherwise -> do 
           case (readMaybe input :: Maybe [Integer]) of 
-            Just xs | genericLength xs == (fromMaybe (genericLength xs) numIn) -> 
-              lift . outputStrLn . show $ eval context xs ast  
+            Just xs -> 
+              if genericLength xs == (fromMaybe (genericLength xs) numIn) 
+                then lift . outputStrLn . show $ eval context xs ast  
+                else do lift $ outputStrLn "Wrong number of args"
+                        promptNumbers ast 
 
-                    | otherwise -> do lift $ outputStrLn "Wrong number of args"
-                                      promptNumbers ast 
-
-            _ -> do lift $ outputStrLn "Numbers should be in Haskell list format"
-                    lift $ outputStrLn $ "e.g. " ++ show [1..fromMaybe 3 numIn]
-                    promptNumbers ast 
+            Nothing -> do lift $ outputStrLn "Numbers should be in Haskell list format"
+                          lift $ outputStrLn $ "e.g. " ++ show [1..fromMaybe 3 numIn]
+                          promptNumbers ast 
 
           loop 
 
 printFunction (numIn, numOut) ast = do 
   let numText = maybe "(any #)" show numIn
-  lift $ outputStrLn $ "f: N^" ++ numText ++ " -> N^" ++ show numOut 
-  lift $ outputStrLn $ "f = " ++ show ast 
+  lift $ outputStrLn $ "N^" ++ numText ++ " -> N^" ++ show numOut 
+  lift $ outputStrLn $ show ast 
 
 isComment = \case 
   [] -> True 

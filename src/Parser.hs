@@ -14,7 +14,7 @@ type ParseResult = (Maybe String, Program)
 -- | Parses a case insensitive string 
 --   and returns its name, if it exists, 
 --   and the associated function code 
-parseString :: String -> Either ParseError ((Maybe String, Program))
+parseString :: String -> Either ParseError ParseResult
 parseString = parse file "" . map toLower 
   where file = do whitespace
                   name <- optionMaybe (try $ identifier <* reservedOp "=")
@@ -52,7 +52,7 @@ tuple = Tuple <$> parens (commaSep1 program) <?> "Tuple"
 lexer = Tok.makeTokenParser (emptyDef {
   Tok.reservedNames = ["o", "p", "s", "prec"],
   Tok.identStart = letter,
-  Tok.identLetter = alphaNum,
+  Tok.identLetter = alphaNum <|> char '\'',
   Tok.commentLine = "#"
 })
 
