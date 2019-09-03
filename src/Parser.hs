@@ -1,8 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 module Parser (parseString) where 
 
-import Prelude hiding (succ)
-
 import Programs 
 
 import Data.Char (toLower)
@@ -11,30 +9,40 @@ import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Language
 import qualified Text.ParserCombinators.Parsec.Token as Tok 
 
-parseString = parse (whitespace >> program) "" . map toLower 
+type ParseResult = (Maybe String, Program)
 
-program :: Parser Program 
-program = chainl1 term (try $ reserved "o" *> pure Compose)
-    where term = prec <|> proj <|> natural <|> succ <|> tuple 
+-- | Parses a case insensitive string 
+--   and returns its name, if it exists, 
+--   and the associated function code 
+parseString :: String -> Either ParseError ((Maybe String, Program))
+parseString = parse file "" . map toLower 
+  where file = do whitespace
+                  name <- optionMaybe (try $ identifier <* reservedOp "=")
+                  f <- program  
+
+                  return (name, f)
+
+program = chainl1 term (reserved "o" *> pure Compose)
+    where term = prec <|> proj <|> natural <|> successor <|> tuple <|> ident
 
 natural = Nat <$> integer  <?> "natural number"
-succ = reserved "s" *> pure Succ <?> "S (successor)"
+successor = reserved "s" *> pure Succ <?> "S (successor)"
+ident = Identifier <$> identifier <?> "identifier"
+
 prec = (do 
-  try $ reserved "prec"
+  reserved "prec"
 
   brackets do 
     h <- program 
- 
     comma
-
     g <- program 
+
     return $ Prec h g) <?> "Prec"
 
 proj = (do 
-  try $ reserved "p"
+  reserved "p"
 
   index <- integer 
-
   arity <- integer 
 
   return $ Proj index arity) <?> "P (proj)"
@@ -42,13 +50,22 @@ proj = (do
 tuple = Tuple <$> parens (commaSep1 program) <?> "Tuple"
 
 lexer = Tok.makeTokenParser (emptyDef {
-  reservedNames = ["o", "p", "s", "prec"]
+  Tok.reservedNames = ["o", "p", "s", "prec"],
+  Tok.identStart = letter,
+  Tok.identLetter = alphaNum,
+  Tok.commentLine = "#"
 })
 
 integer = Tok.natural lexer 
+
 whitespace = Tok.whiteSpace lexer 
+
 brackets = Tok.brackets lexer 
 parens = Tok.parens lexer 
-reserved = Tok.reserved lexer 
+
 comma = Tok.comma lexer 
 commaSep1 = Tok.commaSep1 lexer 
+
+reserved = Tok.reserved lexer 
+reservedOp = Tok.reservedOp lexer 
+identifier = Tok.identifier lexer 
