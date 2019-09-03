@@ -12,6 +12,7 @@ import qualified Data.Map as Map
 
 import Text.Read (readMaybe)
 
+import Data.Foldable (for_)
 import Control.Monad.State
 
 import System.Console.Haskeline
@@ -20,11 +21,17 @@ prompt = "Prec> "
 
 repl :: [String] -> IO () 
 repl input = runInputT settings $ evalEvalT do 
-               forM_ input \line -> 
+               for_ input \line -> 
                  when (not $ isComment line) 
                   case parseString line of 
                     Left err -> lift $ outputStrLn $ show err 
-                    Right (Just name, p) -> addProgram name p 
+
+                    Right (Just name, p) -> do 
+                      context <- get 
+                      case findType context p of 
+                        Just _ -> addProgram name p 
+                        _ -> lift $ outputStrLn "Type error"
+                        
                     Right _ -> return () 
 
                loop
@@ -38,7 +45,8 @@ loop = do
     Just "quit" -> return () 
     Just ":ls" -> do 
       context <- get 
-      forM_ (Map.toList context) \(name, p) -> do 
+      for_ (Map.toList context) \(name, p) -> do 
+        -- If it's in the map, it had to typecheck initially 
         let t = fromJust $ findType context p 
         lift $ outputStrLn name
         printFunction t p 
