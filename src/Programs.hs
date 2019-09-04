@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Programs where 
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (maybe, fromMaybe, isJust)
 import Data.List (intercalate, genericLength)
 import qualified Data.Map as Map
 
@@ -10,7 +10,9 @@ import Control.Monad (guard)
 -- | A function's type is either 
 --   (Just a, b) --> N^a -> N^b
 --   (Nothing, b) -> anything -> N^b  
-type FunctionType = (Maybe Integer, Integer) 
+newtype FunctionType = FunctionType { getFunctionType :: (Maybe Integer, Integer) }
+--newtype FunctionType = FunctionType { getFunctionType :: (Maybe Integer, Integer) }
+
 type EvalState = Map.Map String Program 
 
 data Program = 
@@ -23,15 +25,15 @@ data Program =
              | Prec Program Program 
              -- | Technically this is composition
              --   but its easier to notate and easier
-             --   to understand this way
+             --   to understand this way.
+             -- 
+             --   List cannot be empty.
              | Tuple [Program] 
              -- | Previously bound expressions
              | Identifier String 
 
-typesEqual :: FunctionType -> FunctionType -> Bool 
-typesEqual (Nothing, a) (_, b) = a == b
-typesEqual (_, a) (Nothing, b) = a == b
-typesEqual (Just x, a) (Just y, b) = x == y && a == b
+isWellTyped :: EvalState -> Program -> Bool 
+isWellTyped context = isJust . findType context 
 
 -- | Checks if a given Program is well-formed,
 --   and returns its type if it is. Otherwise
@@ -70,15 +72,20 @@ findType context =
       
         Tuple ~(f:fs) -> do fType@(fIn, _) <- go f 
                             -- Make sure all functions have the same types
-                            fsTypes <- traverse go fs 
-                            guard (and $ map (typesEqual fType) fsTypes)
+                            fsTypes <- traverse (fmap FunctionType . go) fs 
+                            guard (and $ map ((==) (FunctionType fType)) fsTypes)
       
                             return (fIn, genericLength (f:fs))
     
         Identifier v -> go =<< Map.lookup v context
-  in go 
 
-  
+  in fmap FunctionType . go 
+
+instance Eq FunctionType where 
+  t1 == t2 = case (getFunctionType t1, getFunctionType t2) of 
+               ((Nothing, a), (_, b)) -> a == b
+               ((_, a), (Nothing, b)) -> a == b
+               ((Just x, a), (Just y, b)) -> x == y && a == b  
 
 instance Show Program where 
   show = \case 
@@ -89,3 +96,8 @@ instance Show Program where
     Prec h g -> "Prec[" ++ show h ++ ", " ++ show g ++ "]"
     Tuple xs -> "(" ++ intercalate ", " (map show xs) ++ ")"
     Identifier v -> v 
+
+instance Show FunctionType where 
+  show (FunctionType (a, b)) = 
+    let aText = maybe "(any)" (\a' -> "N^" ++ show a') a 
+    in aText ++ " -> " ++ "N^" ++ show b 

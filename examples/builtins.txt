@@ -1,0 +1,8 @@
+add = Prec[S o P 2 3, P 1 1]
+mult = Prec[add o (P 2 3, P 3 3), 0]
+pred = Prec[P 1 2, 0]
+sub' = Prec[pred o P 2 3, P 1 1]
+sub = sub' o (P 2 2, P 1 2)
+
+sign = Prec[1, 0]
+invSign = sub o (1, P 1 1)

@@ -28,10 +28,10 @@ repl input = runInputT settings $ evalEvalT do
 
                     Right (Just name, p) -> do 
                       context <- get 
-                      case findType context p of 
-                        Just _ -> addProgram name p 
-                        _ -> lift $ outputStrLn "Type error"
-                        
+                      if isWellTyped context p 
+                        then addProgram name p 
+                        else lift $ outputStrLn "Type error"
+
                     Right _ -> return () 
 
                loop
@@ -82,7 +82,7 @@ promptNumbers ast = do
   case findType context ast of 
     Nothing -> lift $ outputStrLn "Type error detected, or unknown function name"
 
-    Just t@(numIn, _) -> do 
+    Just t@(FunctionType (numIn, _)) -> do 
       printFunction t ast 
 
       minput <- lift $ getInputLine $ "Enter list of " ++ maybe "(any #)" show numIn ++ " numbers: "
@@ -104,9 +104,8 @@ promptNumbers ast = do
 
           loop 
 
-printFunction (numIn, numOut) ast = do 
-  let numText = maybe "(any #)" show numIn
-  lift $ outputStrLn $ "N^" ++ numText ++ " -> N^" ++ show numOut 
+printFunction t ast = do 
+  lift $ outputStrLn $ show t 
   lift $ outputStrLn $ show ast 
 
 isComment = \case 

@@ -10,3 +10,4 @@ main = do
   text <- concat <$> mapM readFile args 
 
   repl (lines text)
+
