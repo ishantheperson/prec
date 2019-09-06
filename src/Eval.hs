@@ -15,7 +15,7 @@ eval context =
   let go input = \case 
         Identifier v -> go input (fromJust $ Map.lookup v context)
         Nat i -> [i]
-        Succ -> [head input + 1]
+        Succ -> map succ input
         Proj index _ -> [input `genericIndex` (index - 1)]
         Compose f g -> go (go input g) f 
         Tuple fs -> concatMap (go input) fs 

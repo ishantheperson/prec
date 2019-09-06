@@ -73,7 +73,7 @@ findType context =
         Tuple ~(f:fs) -> do fType@(fIn, _) <- go f 
                             -- Make sure all functions have the same types
                             fsTypes <- traverse (fmap FunctionType . go) fs 
-                            guard (and $ map ((==) (FunctionType fType)) fsTypes)
+                            guard (all ((==) (FunctionType fType)) fsTypes)
       
                             return (fIn, genericLength (f:fs))
     

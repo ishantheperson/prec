@@ -4,6 +4,7 @@ module Parser (parseString) where
 import Programs 
 
 import Data.Char (toLower)
+import Data.Functor (($>))
 
 import Text.ParserCombinators.Parsec 
 import Text.ParserCombinators.Parsec.Language
@@ -22,7 +23,7 @@ parseString = parse file "" . map toLower
 
                   return (name, f)
 
-program = chainl1 term (reserved "o" *> pure Compose)
+program = chainl1 term (reserved "o" $> Compose)
     where term = prec <|> proj <|> natural <|> successor <|> tuple <|> ident
 
 natural = Nat <$> integer  <?> "natural number"
