@@ -1,5 +1,5 @@
 {-# LANGUAGE BlockArguments #-}
-module Parser (parseString) where 
+module Parser (parseString, ParseResult) where 
 
 import Programs 
 
@@ -43,8 +43,8 @@ prec = (do
 proj = (do 
   reserved "p"
 
-  index <- integer 
-  arity <- integer 
+  index <- integer <?> "projection index"
+  arity <- integer <?> "projection arity"
 
   return $ Proj index arity) <?> "P (proj)"
 

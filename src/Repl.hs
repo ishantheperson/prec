@@ -22,16 +22,16 @@ prompt = "Prec> "
 repl :: [String] -> IO () 
 repl input = runInputT settings $ evalEvalT do 
                for_ input \line -> 
-                 when (not $ isComment line) 
+                 when (not $ isComment line)
                   case parseString line of 
                     Left err -> lift $ outputStrLn $ show err 
-
                     Right (Just name, p) -> do 
                       context <- get 
                       if isWellTyped context p 
                         then addProgram name p 
                         else lift $ outputStrLn "Type error"
 
+                    -- Ignore floating definitions 
                     Right _ -> return () 
 
                loop
@@ -80,7 +80,8 @@ promptNumbers :: Program -> EvalT (InputT IO) ()
 promptNumbers ast = do 
   context <- get 
   case findType context ast of 
-    Nothing -> lift $ outputStrLn "Type error detected, or unknown function name"
+    Nothing -> do lift $ outputStrLn "Type error detected, or unknown function name"
+                  loop 
 
     Just t@(FunctionType (numIn, _)) -> do 
       printFunction t ast 

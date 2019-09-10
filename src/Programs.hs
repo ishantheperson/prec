@@ -42,7 +42,7 @@ findType :: EvalState -> Program -> Maybe FunctionType
 findType context = 
   let go = \case 
         Nat _ -> return (Nothing, 1)
-        Succ -> return (Just 1, 1) 
+        Succ -> return (Just 1, 1)
         Proj _ arity -> return (Just arity, 1)
       
         Compose f g -> do (fIn, fOut) <- go f 

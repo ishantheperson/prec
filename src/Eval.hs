@@ -18,7 +18,7 @@ eval context =
         Succ -> map succ input
         Proj index _ -> [input `genericIndex` (index - 1)]
         Compose f g -> go (go input g) f 
-        Tuple fs -> concatMap (go input) fs 
+        Tuple fs -> fs >>= go input
         Prec h g -> case input of 
                       0:xs -> go xs g 
                       ~((x+1):xs) -> go (x:(go (x:xs) (Prec h g)) ++ xs) h 
