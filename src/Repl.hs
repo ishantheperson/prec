@@ -14,13 +14,10 @@ import Text.Read (readMaybe)
 
 import Data.Foldable (for_)
 import Control.Monad.State
-import Control.Arrow ((>>>))
 
 import System.Console.Haskeline
-import System.Console.Haskeline.Completion 
 
 prompt = "Prec> "
-
 
 repl :: [String] -> IO () 
 repl input = evalEvalT $ runInputT settings do 
@@ -42,15 +39,11 @@ repl input = evalEvalT $ runInputT settings do
                    
         completer = completeWord Nothing " \t" findCompletion
 
-
--- To implement TAB completion, we need to switch the order
--- of the monad transformer stack. Then we can use the example 
--- from Reddit to add it
 findCompletion :: String -> (EvalT IO) [Completion]
-findCompletion s = gets (Map.keys >>> 
-  mapMaybe (\k -> if s `isPrefixOf` k 
-                    then Just (simpleCompletion k) 
-                    else Nothing))
+findCompletion s = gets (\context ->  
+  mapMaybe (\(k, v) -> if s `isPrefixOf` k 
+                            then Just $ Completion k (k ++ ": " ++ show (fromJust $ findType context v)) True  
+                            else Nothing) (Map.toList context))
 
 loop :: InputT (EvalT IO) ()
 loop = do 
