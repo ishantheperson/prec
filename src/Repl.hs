@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, BlockArguments, ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase, BlockArguments, ScopedTypeVariables, FlexibleContexts #-}
 module Repl where 
 
 import Eval
@@ -6,87 +6,102 @@ import Parser
 import Programs 
 
 import Data.Char (isSpace)
-import Data.List (genericLength)
-import Data.Maybe (fromMaybe, maybe, fromJust)
+import Data.List (genericLength, isPrefixOf)
+import Data.Maybe (fromMaybe, maybe, fromJust, mapMaybe)
 import qualified Data.Map as Map
 
 import Text.Read (readMaybe)
 
 import Data.Foldable (for_)
 import Control.Monad.State
+import Control.Arrow ((>>>))
 
 import System.Console.Haskeline
+import System.Console.Haskeline.Completion 
 
 prompt = "Prec> "
 
+
 repl :: [String] -> IO () 
-repl input = runInputT settings $ evalEvalT do 
+repl input = evalEvalT $ runInputT settings do 
                for_ input \line -> 
                  when (not $ isComment line)
                   case parseString line of 
-                    Left err -> lift $ outputStrLn $ show err 
+                    Left err -> outputStrLn $ show err 
                     Right (Just name, p) -> do 
-                      context <- get 
+                      context <- lift get 
                       if isWellTyped context p 
-                        then addProgram name p 
-                        else lift $ outputStrLn "Type error"
+                        then lift $ addProgram name p 
+                        else outputStrLn "Type error"
 
                     -- Ignore floating definitions 
                     Right _ -> return () 
-
                loop
-  where settings = defaultSettings { historyFile = Just ".precHistory" }
+  where settings :: Settings (EvalT IO)
+        settings = setComplete completer (defaultSettings { historyFile = Just ".precHistory" })
+                   
+        completer = completeWord Nothing " \t" findCompletion
 
-loop :: EvalT (InputT IO) ()
+
+-- To implement TAB completion, we need to switch the order
+-- of the monad transformer stack. Then we can use the example 
+-- from Reddit to add it
+findCompletion :: String -> (EvalT IO) [Completion]
+findCompletion s = gets (Map.keys >>> 
+  mapMaybe (\k -> if s `isPrefixOf` k 
+                    then Just (simpleCompletion k) 
+                    else Nothing))
+
+loop :: InputT (EvalT IO) ()
 loop = do 
-  minput <- lift $ getInputLine prompt 
+  minput <- getInputLine prompt 
   case minput of 
     Nothing -> return () 
     Just "quit" -> return () 
     Just ":ls" -> do 
-      context <- get 
+      context <- lift get 
       for_ (Map.toList context) \(name, p) -> do 
         -- If it's in the map, it had to typecheck initially 
         let t = fromJust $ findType context p 
-        lift $ outputStrLn name
+        outputStrLn name
         printFunction t p 
 
-        lift $ outputStrLn ""
+        outputStrLn ""
 
       loop 
 
     Just input | isComment input -> loop 
                | otherwise -> processInput input 
 
-processInput :: String -> EvalT (InputT IO) () 
+processInput :: String -> InputT (EvalT IO) () 
 processInput input = do 
-  context <- get 
+  context <- lift get 
   case parseString input of 
-    Left error -> do lift $ outputStrLn $ show error 
+    Left error -> do outputStrLn $ show error 
                      loop 
                      
     Right (Just name, program) -> 
       case findType context program of 
-        Nothing -> do lift $ outputStrLn "Type error detected, or unknown function name"
+        Nothing -> do outputStrLn "Type error detected, or unknown function name"
                       loop 
 
         Just t -> do printFunction t program 
-                     addProgram name program 
+                     lift $ addProgram name program 
                      loop 
                                      
     Right (Nothing, program) -> promptNumbers program  
 
-promptNumbers :: Program -> EvalT (InputT IO) () 
+promptNumbers :: Program -> InputT (EvalT IO) () 
 promptNumbers ast = do 
-  context <- get 
+  context <- lift get 
   case findType context ast of 
-    Nothing -> do lift $ outputStrLn "Type error detected, or unknown function name"
+    Nothing -> do outputStrLn "Type error detected, or unknown function name"
                   loop 
 
     Just t@(FunctionType (numIn, _)) -> do 
       printFunction t ast 
 
-      minput <- lift $ getInputLine $ "Enter list of " ++ maybe "(any #)" show numIn ++ " numbers: "
+      minput <- getInputLine $ "Enter list of " ++ maybe "(any #)" show numIn ++ " numbers: "
       case minput of 
         Nothing -> loop 
 
@@ -95,19 +110,19 @@ promptNumbers ast = do
           case (readMaybe input :: Maybe [Integer]) of 
             Just xs -> 
               if genericLength xs == (fromMaybe (genericLength xs) numIn) 
-                then lift . outputStrLn . show $ eval context xs ast  
-                else do lift $ outputStrLn "Wrong number of args"
+                then outputStrLn . show $ eval context xs ast  
+                else do outputStrLn "Wrong number of args"
                         promptNumbers ast 
 
-            Nothing -> do lift $ outputStrLn "Numbers should be in Haskell list format"
-                          lift $ outputStrLn $ "e.g. " ++ show [1..fromMaybe 3 numIn]
+            Nothing -> do outputStrLn "Numbers should be in Haskell list format"
+                          outputStrLn $ "e.g. " ++ show [1..fromMaybe 3 numIn]
                           promptNumbers ast 
 
           loop 
 
 printFunction t ast = do 
-  lift $ outputStrLn $ show t 
-  lift $ outputStrLn $ show ast 
+  outputStrLn $ show t 
+  outputStrLn $ show ast 
 
 isComment = \case 
   [] -> True 
